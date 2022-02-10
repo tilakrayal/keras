@@ -34,6 +34,7 @@ from keras.engine import training_utils
 from keras.mixed_precision import loss_scale_optimizer as lso
 from keras.optimizers import optimizer_v1
 from keras.optimizers.optimizer_experimental import optimizer as optimizer_experimental
+from keras.saving import experimental_saving
 from keras.saving import hdf5_format
 from keras.saving import pickle_utils
 from keras.saving import save
@@ -639,8 +640,11 @@ class Model(base_layer.Layer, version_utils.ModelVersionSelector):
       self._run_eagerly = run_eagerly
 
       self.optimizer = self._get_optimizer(optimizer)
-      self.compiled_loss = compile_utils.LossesContainer(
-          loss, loss_weights, output_names=self.output_names)
+      if isinstance(loss, compile_utils.LossesContainer):
+        self.compiled_loss = loss
+      else:
+        self.compiled_loss = compile_utils.LossesContainer(
+            loss, loss_weights, output_names=self.output_names)
       self.compiled_metrics = compile_utils.MetricsContainer(
           metrics, weighted_metrics, output_names=self.output_names,
           from_serialized=from_serialized)
@@ -2702,7 +2706,20 @@ class Model(base_layer.Layer, version_utils.ModelVersionSelector):
     # see their model's `__init__()` be fed with unexpected keyword argument, if
     # their `__init__()` takes no argument for example, and they don't override
     # `from_config()`, which would use `cls(**config)` as a result.
-    return {}
+    config = {}
+    if self.optimizer:
+      config['optimizer'] = {
+          'class': generic_utils.get_registered_name(self.optimizer.__class__),
+          'config': self.optimizer.get_config()
+      }
+    if self.compiled_loss:
+      config['loss'] = {
+          'class':
+              generic_utils.get_registered_name(self.compiled_loss.__class__),
+          'config':
+              self.compiled_loss.get_config()
+      }
+    return config
 
   @classmethod
   def from_config(cls, config, custom_objects=None):
@@ -2727,8 +2744,24 @@ class Model(base_layer.Layer, version_utils.ModelVersionSelector):
       # where `get_config()` is returning insufficient information to be
       # considered a Functional model. In this case, we fall back to provide
       # all config into the constructor of the class.
+      optimizer, loss = None, None
+
+      optimizer_dict = config.pop('optimizer', {})
+      if optimizer_dict:
+        optimizer_class = optimizer_dict['class']
+        optimizer_config = optimizer_dict['config']
+        optimizer = generic_utils.get_custom_objects_by_name(
+            optimizer_class).from_config(optimizer_config)
+
+      loss_dict = config.pop('loss', {})
+      if loss_dict:
+        loss_class = loss_dict['class']
+        loss_config = loss_dict['config']
+        loss = generic_utils.get_custom_objects_by_name(loss_class).from_config(
+            loss_config)
+
       try:
-        return cls(**config)
+        model = cls(**config)
       except TypeError as e:
         raise TypeError('Unable to revive model from config. When overriding '
                         'the `get_config()`, make sure that the returned '
@@ -2739,6 +2772,10 @@ class Model(base_layer.Layer, version_utils.ModelVersionSelector):
                         f'instance of {cls.__name__} from the config. \n\n'
                         f'Error encountered during deserialization:\n{e}')
 
+      if optimizer or loss:
+        model.compile(optimizer=optimizer, loss=loss)
+      return model
+
   def to_json(self, **kwargs):
     """Returns a JSON string containing the network configuration.
 
@@ -2746,8 +2783,7 @@ class Model(base_layer.Layer, version_utils.ModelVersionSelector):
     `keras.models.model_from_json(json_string, custom_objects={})`.
 
     Args:
-        **kwargs: Additional keyword arguments
-            to be passed to `json.dumps()`.
+        **kwargs: Additional keyword arguments to be passed to `json.dumps()`.
 
     Returns:
         A JSON string.
@@ -3256,6 +3292,9 @@ class Model(base_layer.Layer, version_utils.ModelVersionSelector):
   @property
   def _compile_was_called(self):
     return self._is_compiled
+
+  def _save_new(self, dirpath):
+    return experimental_saving.save(self, dirpath)
 
 
 def reduce_per_replica(values, strategy, reduction='first'):

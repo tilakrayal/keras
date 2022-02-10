@@ -14,13 +14,15 @@
 # ==============================================================================
 """Adam optimizer implementation."""
 
-import tensorflow.compat.v2 as tf
 from keras import backend_config
 from keras.optimizers.optimizer_v2 import optimizer_v2
+from keras.utils import generic_utils
+import tensorflow.compat.v2 as tf
 from tensorflow.python.util.tf_export import keras_export
 
 
 # pylint: disable=g-classes-have-attributes
+@generic_utils.register_keras_serializable('Adam')
 @keras_export('keras.optimizers.Adam')
 class Adam(optimizer_v2.OptimizerV2):
   r"""Optimizer that implements the Adam algorithm.

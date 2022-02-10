@@ -161,3 +161,33 @@ tf_py_test(
         "//keras/testing_infra:test_combinations",
     ],
 )
+
+py_library(
+    name = "experimental_saving",
+    srcs = [
+        "experimental_saving.py",
+    ],
+    srcs_version = "PY3",
+    deps = [
+        "//:expect_tensorflow_installed",
+        "//keras/saving/saved_model",
+        "//keras/utils:generic_utils",
+        "//third_party/tensorflow/compiler/jit",
+        "//third_party/tensorflow/compiler/jit:xla_cpu_jit",
+        "//third_party/tensorflow/compiler/jit:xla_gpu_jit",
+        "//third_party/tensorflow/compiler/jit:xla_tpu_jit",
+    ],
+)
+
+tf_py_test(
+    name = "experimental_saving_test",
+    size = "small",
+    srcs = ["experimental_saving_test.py"],
+    python_version = "PY3",
+    deps = [
+        "//:expect_absl_installed",
+        "//:expect_tensorflow_installed",
+        "//keras",
+        "//keras/utils:generic_utils",
+    ],
+)

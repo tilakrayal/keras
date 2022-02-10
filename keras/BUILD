@@ -181,7 +181,15 @@ py_library(
     srcs_version = "PY3",
     deps = [
         ":backend",
+        "//:expect_tensorflow_installed",
         "//keras/utils:engine_utils",
+        "//keras/utils:generic_utils",
+        "//keras/utils:tf_utils",
+        "//third_party/tensorflow/python/ops/ragged:ragged_map_ops",
+        "//third_party/tensorflow/python/ops/ragged:ragged_util",
+        "//third_party/tensorflow/python/util",
+        "//third_party/tensorflow/python/util:core",
+        "//third_party/tensorflow/tools/docs:doc_controls",
     ],
 )
 

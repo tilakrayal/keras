@@ -97,10 +97,15 @@ class Container:
     raise NotImplementedError
 
 
+@generic_utils.register_keras_serializable('LossesContainer')
 class LossesContainer(Container):
   """A container class for losses passed to `Model.compile`."""
 
-  def __init__(self, losses, loss_weights=None, output_names=None):
+  def __init__(self,
+               losses,
+               loss_weights=None,
+               output_names=None,
+               loss_metric=None):
     super(LossesContainer, self).__init__(output_names=output_names)
 
     # Keep user-supplied values untouched for recompiling and serialization.
@@ -110,8 +115,46 @@ class LossesContainer(Container):
     self._losses = losses
     self._loss_weights = loss_weights
     self._per_output_metrics = None  # Per-output losses become metrics.
-    self._loss_metric = metrics_mod.Mean(name='loss')  # Total loss.
+
+    # Total loss.
+    self._loss_metric = loss_metric or metrics_mod.Mean(name='loss')
     self._built = False
+
+  def _get_loss_config(self, loss):
+    if isinstance(loss, str):
+      loss = self._get_loss_object(loss)
+    return loss.get_config()
+
+  def get_config(self):
+    # In case `self._losses` is a single string where we convert it to a list.
+    self._losses = tf.nest.flatten(self._losses)
+    loss_configs = [{  # pylint: disable=g-complex-comprehension
+        'class': generic_utils.get_registered_name(loss.__class__),
+        'config': self._get_loss_config(loss)
+    } for loss in self._losses]
+    return {
+        'losses': loss_configs,
+        'loss_metric': {
+            'class':
+                generic_utils.get_registered_name(self._loss_metric.__class__),
+            'config':
+                self._loss_metric.get_config()
+        }
+    }
+
+  @classmethod
+  def deserialize(cls, obj_struct):
+    if isinstance(obj_struct, list):
+      return [cls.deserialize(item) for item in obj_struct]
+    obj_class = obj_struct['class']
+    obj_config = obj_struct['config']
+    return generic_utils.get_custom_objects_by_name(obj_class).from_config(
+        obj_config)
+
+  @classmethod
+  def from_config(cls, config):
+    config = {key: cls.deserialize(value) for key, value in config.items()}
+    return cls(**config)
 
   @property
   def metrics(self):

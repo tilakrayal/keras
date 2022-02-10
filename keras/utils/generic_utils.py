@@ -14,7 +14,6 @@
 # ==============================================================================
 """Python utilities required by Keras."""
 
-import tensorflow.compat.v2 as tf
 
 import binascii
 import codecs
@@ -28,12 +27,11 @@ import time
 import types as python_types
 import warnings
 import weakref
-
-import numpy as np
-
 from keras.utils import io_utils
 from keras.utils import tf_contextlib
 from keras.utils import tf_inspect
+import numpy as np
+import tensorflow.compat.v2 as tf
 from tensorflow.python.util.tf_export import keras_export
 
 _GLOBAL_CUSTOM_OBJECTS = {}
@@ -540,7 +538,7 @@ def get_custom_objects_by_name(item, custom_objects=None):
     return _GLOBAL_CUSTOM_OBJECTS[item]
   elif custom_objects and item in custom_objects:
     return custom_objects[item]
-  return None
+  raise KeyError(f'No custom object found for key: \'{item}\'')
 
 
 def class_and_config_for_serialized_keras_object(

@@ -66,6 +66,7 @@ py_library(
         "//keras/mixed_precision:policy",
         "//keras/optimizers",
         "//keras/saving",
+        "//keras/saving:experimental_saving",
         "//keras/utils:engine_utils",
         "//keras/utils:metrics_utils",
         "//keras/utils:mode_keys",

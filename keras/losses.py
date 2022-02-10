@@ -15,15 +15,16 @@
 # pylint: disable=g-classes-have-attributes
 """Built-in loss functions."""
 
-import tensorflow.compat.v2 as tf
 
 import abc
 import functools
 from keras import backend
+from keras.utils import generic_utils
 from keras.utils import losses_utils
 from keras.utils import tf_utils
 from keras.utils.generic_utils import deserialize_keras_object
 from keras.utils.generic_utils import serialize_keras_object
+import tensorflow.compat.v2 as tf
 from tensorflow.python.ops.ragged import ragged_map_ops
 from tensorflow.python.ops.ragged import ragged_util
 from tensorflow.python.util import dispatch
@@ -197,6 +198,7 @@ class Loss:
     return self.reduction
 
 
+@generic_utils.register_keras_serializable('LossFunctionWrapper')
 class LossFunctionWrapper(Loss):
   """Wraps a loss function in the `Loss` class."""
 
@@ -246,10 +248,27 @@ class LossFunctionWrapper(Loss):
     config = {}
     for k, v in self._fn_kwargs.items():
       config[k] = backend.eval(v) if tf_utils.is_tensor_or_variable(v) else v
+    config['fn'] = generic_utils.get_registered_name(self.fn)
     base_config = super().get_config()
     return dict(list(base_config.items()) + list(config.items()))
 
+  @classmethod
+  def from_config(cls, config):
+    """Instantiates a `Loss` from its config (output of `get_config()`).
 
+    Args:
+        config: Output of `get_config()`.
+
+    Returns:
+        A `Loss` instance.
+    """
+    fn_name = config.pop('fn', None)
+    if fn_name and cls is LossFunctionWrapper:
+      config['fn'] = generic_utils.get_custom_objects_by_name(fn_name)
+    return cls(**config)
+
+
+@generic_utils.register_keras_serializable('MeanSquaredError')
 @keras_export('keras.losses.MeanSquaredError')
 class MeanSquaredError(LossFunctionWrapper):
   """Computes the mean of squares of errors between labels and predictions.
@@ -1294,6 +1313,7 @@ class Huber(LossFunctionWrapper):
     super().__init__(huber, name=name, reduction=reduction, delta=delta)
 
 
+@generic_utils.register_keras_serializable('mean_squared_error')
 @keras_export('keras.metrics.mean_squared_error', 'keras.metrics.mse',
               'keras.metrics.MSE', 'keras.losses.mean_squared_error',
               'keras.losses.mse', 'keras.losses.MSE')

@@ -536,6 +536,7 @@ class Sum(Reduce):
                               name=name, dtype=dtype)
 
 
+@generic_utils.register_keras_serializable('Mean')
 @keras_export('keras.metrics.Mean')
 class Mean(Reduce):
   """Computes the (weighted) mean of the given values.
